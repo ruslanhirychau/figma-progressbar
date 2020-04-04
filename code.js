@@ -25,7 +25,8 @@ if (typeof selected === "object") {
 }
 
 // Showing UI
-figma.showUI(__html__);
+figma.showUI(__html__, { width: 300, height: 140 });
+
 figma.ui.postMessage(params);
 
 // Getting data from UI
@@ -48,26 +49,29 @@ figma.ui.onmessage = message => {
   } else {
     // Creating new progress bar
     const defaultWidth = 200;
-    const defaultHeight = 2;
+    const defaultHeight = 4;
+    const defaultBorder = 1;
 
     // Creating progress
     const progress = figma.createRectangle();
     progress.resize(
       (defaultWidth * result.progress) / result.total,
-      defaultHeight
+      defaultHeight - defaultBorder * 2
     );
     progress.cornerRadius = defaultHeight / 2;
-    progress.fills = [{ type: "SOLID", color: { r: 0.1, g: 0.6, b: 0.98 } }];
+    progress.fills = [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }];
+    progress.x = defaultBorder;
+    progress.y = defaultBorder;
 
     // Creating progressbar
     const frame = figma.createFrame();
     frame.resizeWithoutConstraints(defaultWidth, defaultHeight);
     frame.cornerRadius = defaultHeight / 2;
-    frame.fills = [{ type: "SOLID", color: { r: 0.8, g: 0.9, b: 1 } }];
+    frame.fills = [{ type: "SOLID", color: { r: 0.1, g: 0.6, b: 0.98 } }];
 
     // Center the progressbar
-    frame.x = figma.viewport.center.x - defaultWidth / 2;
-    frame.y = figma.viewport.center.y - defaultHeight / 2;
+    frame.x = parseInt(figma.viewport.center.x - defaultWidth / 2);
+    frame.y = parseInt(figma.viewport.center.y - defaultHeight / 2);
 
     frame.name = frameTitle + " [" + result.progress + ":" + result.total + "]";
 
