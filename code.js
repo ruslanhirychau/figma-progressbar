@@ -3,7 +3,7 @@ const frameTitle = "Progressbar";
 const params = {
   existing: false,
   progress: 50,
-  total: 100
+  total: 100,
 };
 
 // Looking for selected frame
@@ -30,44 +30,50 @@ figma.showUI(__html__, { width: 300, height: 140 });
 figma.ui.postMessage(params);
 
 // Getting data from UI
-figma.ui.onmessage = message => {
+figma.ui.onmessage = (message) => {
   const result = message;
   figma.ui.hide();
 
   if (result.existing) {
-    // If frame exists
+    // Progressbar exising
     const progressbar = selected;
     const progress = selected["children"][0];
 
-    progress.resize(
-      progressbar.width * (result.progress / result.total),
-      progress.height
-    );
+    if (result.progress > 0) {
+      progress.visible = true;
+
+      progress.resize(
+        progressbar.width * (result.progress / result.total),
+        progress.height
+      );
+    } else {
+      progress.visible = false;
+    }
 
     progressbar.name =
       frameTitle + " [" + result.progress + ":" + result.total + "]";
   } else {
     // Creating new progress bar
     const defaultWidth = 200;
-    const defaultHeight = 4;
-    const defaultBorder = 1;
+    const defaultHeight = 8;
+    const defaultBorder = 2;
 
-    // Creating progress
+    // Creating progressbar
     const progress = figma.createRectangle();
     progress.resize(
       (defaultWidth * result.progress) / result.total,
       defaultHeight - defaultBorder * 2
     );
     progress.cornerRadius = defaultHeight / 2;
-    progress.fills = [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }];
+    progress.fills = [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }]; // https://www.easyrgb.com/en/convert.php
     progress.x = defaultBorder;
     progress.y = defaultBorder;
 
-    // Creating progressbar
+    // Creating progressbar container
     const frame = figma.createFrame();
     frame.resizeWithoutConstraints(defaultWidth, defaultHeight);
     frame.cornerRadius = defaultHeight / 2;
-    frame.fills = [{ type: "SOLID", color: { r: 0.1, g: 0.6, b: 0.98 } }];
+    frame.fills = [{ type: "SOLID", color: { r: 0, g: 0.84314, b: 0.63922 } }]; // https://www.easyrgb.com/en/convert.php
 
     // Center the progressbar
     frame.x = parseInt(figma.viewport.center.x - defaultWidth / 2);
