@@ -1718,11 +1718,11 @@
         calculateProgress();
 
         progressField.oninput = () => {
-          result.progress = parseInt(progressField.value);
+          result.progress = parseFloat(progressField.value);
           calculateProgress();
         }
         totalField.oninput = () => {
-          result.total = parseInt(totalField.value)
+          result.total = parseFloat(totalField.value)
           calculateProgress();
         };
 

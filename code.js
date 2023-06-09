@@ -19,8 +19,8 @@ if (typeof selected === "object") {
     params.existing = true;
 
     const values = exists[2].split(":");
-    params.progress = parseInt(values[0]);
-    params.total = parseInt(values[1]);
+    params.progress = parseFloat(values[0]);
+    params.total = parseFloat(values[1]);
   }
 }
 
@@ -76,8 +76,8 @@ figma.ui.onmessage = (message) => {
     frame.fills = [{ type: "SOLID", color: { r: 0, g: 0.84314, b: 0.63922 } }]; // https://www.easyrgb.com/en/convert.php
 
     // Center the progressbar
-    frame.x = parseInt(figma.viewport.center.x - defaultWidth / 2);
-    frame.y = parseInt(figma.viewport.center.y - defaultHeight / 2);
+    frame.x = parseFloat(figma.viewport.center.x - defaultWidth / 2);
+    frame.y = parseFloat(figma.viewport.center.y - defaultHeight / 2);
 
     frame.name = frameTitle + " [" + result.progress + ":" + result.total + "]";
 
