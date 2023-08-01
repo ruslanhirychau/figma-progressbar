@@ -9,7 +9,8 @@ console.log("The plugin is up and running")
   [✓] Support copy progressbars
   [✓] Support changing progressbar type
   [✓] Support current Progressbar [50 : 100]
-  [ ] Support autolayout for Bars
+  [✓] Support autolayout for Bars
+  [✓] Support instances
   [ ] Get values form nodes
   [ ] Random values
 */
@@ -172,7 +173,8 @@ function hasChildren(node: SceneNode, exact?: string): boolean {
     node.type === "FRAME" ||
     node.type === "COMPONENT" ||
     node.type === "COMPONENT_SET" ||
-    node.type === "SECTION"
+    node.type === "SECTION" ||
+    node.type === "INSTANCE"
   ) {
     //If no request for exact child return false
     if (!exact) return true;
@@ -276,11 +278,23 @@ interface Attrs {
     width: number,
     height: number,
     radius?: number,
+    layoutMode: 'HORIZONTAL' | 'NONE',
+    paddings?: {
+      left: number
+      right: number
+      top: number
+      bottom: number
+    },
+    primaryAxisSizingMode?: 'FIXED',
+    counterAxisSizingMode?: 'FIXED',
+    primaryAxisAlignItems?: 'MIN' | 'MAX',
+    counterAxisAlignItems?: 'CENTER',
     fills: Paint
   },
   value: {
     name: NodesTitle,
-    constraints: Constraints,
+    layoutSizingHorizontal?: 'FILL',
+    layoutSizingVertical?: 'FILL',
     fills: Paint
   },
   total?: {
@@ -293,9 +307,20 @@ const barAttrs: Attrs = {
   body: {
     name: NodesTitle.Progressbar,
     width: 120,
-    height: 4,
+    height: 8,
+    layoutMode: 'HORIZONTAL',
+    paddings: {
+      left: 2,
+      right: 2,
+      top: 2,
+      bottom: 2,
+    },
+    primaryAxisSizingMode: 'FIXED',
+    counterAxisSizingMode: 'FIXED',
+    primaryAxisAlignItems: 'MIN',
+    counterAxisAlignItems: 'CENTER',
     fills: {
-      type: "SOLID",
+      type: 'SOLID',
       color: {
         r: 0.73333,
         g: 0.73333,
@@ -305,12 +330,10 @@ const barAttrs: Attrs = {
   },
   value: {
     name: NodesTitle.Value,
-    constraints: {
-      horizontal: "SCALE",
-      vertical: "STRETCH"
-    },
+    layoutSizingHorizontal: 'FILL',
+    layoutSizingVertical: 'FILL',
     fills: {
-      type: "SOLID",
+      type: 'SOLID',
       color: {
         r: 0.08235,
         g: 0.08235,
@@ -323,11 +346,12 @@ const barAttrs: Attrs = {
 const pieAttrs: Attrs = {
   body: {
     name: NodesTitle.Progressbar,
+    layoutMode: 'NONE',
     width: 48,
     height: 48,
     radius: 0.84,
     fills: {
-      type: "SOLID",
+      type: 'SOLID',
       color: {
         r: 0.73333,
         g: 0.73333,
@@ -337,12 +361,8 @@ const pieAttrs: Attrs = {
   },
   value: {
     name: NodesTitle.Value,
-    constraints: {
-      horizontal: "SCALE",
-      vertical: "STRETCH"
-    },
     fills: {
-      type: "SOLID",
+      type: 'SOLID',
       color: {
         r: 0.08235,
         g: 0.08235,
@@ -353,7 +373,7 @@ const pieAttrs: Attrs = {
   total: {
     name: NodesTitle.Total,
     fills: {
-      type: "SOLID",
+      type: 'SOLID',
       color: {
         r: 0.73333,
         g: 0.73333,
@@ -393,17 +413,26 @@ function createProgressbar(props: Props, selected?: SceneNode): SceneNode {
   body.resize(attrs.body.width, attrs.body.height);
 
   if (props.progressType === ProgressTypes.Bar) {
+    body.layoutMode = attrs.body.layoutMode;
+    body.paddingLeft = attrs.body.paddings?.left || 0;
+    body.paddingRight = attrs.body.paddings?.right || 0;
+    body.paddingTop = attrs.body.paddings?.top || 0;
+    body.paddingBottom = attrs.body.paddings?.bottom || 0;
+    body.primaryAxisSizingMode = attrs.body.primaryAxisSizingMode || 'FIXED';
+    body.counterAxisSizingMode = attrs.body.counterAxisSizingMode || 'FIXED';
+    body.primaryAxisAlignItems = props.remain ? 'MAX' : 'MIN';
+    body.counterAxisAlignItems = attrs.body.counterAxisAlignItems || 'CENTER';
     body.fills = [attrs.body.fills];
 
     // Create value
     const value = figma.createFrame();
+    body.appendChild(value);
+
     value.name = attrs.value.name;
-    value.resize(attrs.body.width / 2, attrs.body.height);
-    value.constraints = attrs.value.constraints;
+    value.layoutSizingHorizontal = attrs.value.layoutSizingHorizontal || 'FILL';
+    value.layoutSizingVertical = attrs.value.layoutSizingVertical || 'FILL';
     value.fills = [attrs.value.fills];
 
-    body.appendChild(value);
-    value.x = props.remain ? body.width - value.width : 0;
   } else if (props.progressType === ProgressTypes.Pie) {
     body.fills = [];
 
@@ -470,6 +499,8 @@ function updateProgressabars(progressbars: SceneNode[], props: Props): SceneNode
 
   function percentageToWidth(percentage: number, total: number): number {
     const value = percentage <= 100 ? (percentage / 100) * total : total;
+    if (value <= 0) return 0;
+    if (value > total) return total;
     return value;
   }
 
@@ -499,19 +530,39 @@ function updateProgressabars(progressbars: SceneNode[], props: Props): SceneNode
   function updateValue(progressbar: SceneNode, percentage: number): void {
     if (
       progressbar.type !== "FRAME" &&
-      progressbar.type !== "COMPONENT"
+      progressbar.type !== "COMPONENT" &&
+      progressbar.type !== "INSTANCE"
     ) throw new Error("Progressbat have to be FRAME or COMPONENT");
 
     const attrs = props.progressType === ProgressTypes.Bar ? barAttrs : pieAttrs;
-
     const valueFrame = progressbar.findChild(child => child.name === attrs.value.name);
-    const isVisible = percentage !== 0;
+    const isVisible: boolean = !(props.remain ? percentage >= 100 : percentage <= 0);
 
     if (valueFrame) {
       if (props.progressType === ProgressTypes.Bar && valueFrame.type === "FRAME") {
         // Bar type
-        valueFrame.resize(isVisible ? percentageToWidth(percentage, progressbar.width) : 0.01, valueFrame.height);
-        valueFrame.x = props.remain ? progressbar.width - valueFrame.width : 0;
+        progressbar.primaryAxisAlignItems = props.remain ? 'MAX' : 'MIN';
+
+        const usersPadding = Math.min(progressbar.paddingLeft, progressbar.paddingRight);
+        const actualWidth = progressbar.width - usersPadding * 2;
+
+        if (progressbar.type === "FRAME") {
+          // Operating by width
+          let newWidth = percentageToWidth(percentage, progressbar.width - usersPadding * 2);
+          if (props.remain) newWidth = actualWidth - newWidth;
+
+          valueFrame.resize(isVisible ? newWidth : 0.01, valueFrame.height);
+          valueFrame.layoutSizingHorizontal = "FIXED";
+
+        } else if (progressbar.type === "INSTANCE") {
+          // Operating by paddings
+          const newPadding = percentageToWidth(props.remain ? percentage : 100 - percentage, actualWidth) + usersPadding;
+
+          progressbar.paddingRight = props.remain ? usersPadding : newPadding;
+          progressbar.paddingLeft = props.remain ? newPadding : usersPadding;
+          valueFrame.layoutSizingHorizontal = "FILL";
+        }
+
         valueFrame.visible = isVisible;
       } else if (props.progressType === ProgressTypes.Pie && valueFrame.type === "ELLIPSE") {
         // Pie type
@@ -523,7 +574,6 @@ function updateProgressabars(progressbars: SceneNode[], props: Props): SceneNode
         valueFrame.visible = isVisible;
       }
     }
-
   }
 
   const percentage = calculatePercenage(props.value, props.total);
@@ -656,8 +706,8 @@ function edit(): void {
       recentProps = receivedData.props;
 
       // Select updated progressbars
-      figma.currentPage.selection = updatedNodes;
-      figma.viewport.scrollAndZoomIntoView(updatedNodes);
+      // figma.currentPage.selection = updatedNodes;
+      // figma.viewport.scrollAndZoomIntoView(updatedNodes);
 
       storageSync(Sync.Backup).then(() => {
         figma.notify("Progressbars edited!");

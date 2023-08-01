@@ -9,7 +9,8 @@ console.log("The plugin is up and running");
   [✓] Support copy progressbars
   [✓] Support changing progressbar type
   [✓] Support current Progressbar [50 : 100]
-  [ ] Support autolayout for Bars
+  [✓] Support autolayout for Bars
+  [✓] Support instances
   [ ] Get values form nodes
   [ ] Random values
 */
@@ -140,7 +141,8 @@ function hasChildren(node, exact) {
         node.type === "FRAME" ||
         node.type === "COMPONENT" ||
         node.type === "COMPONENT_SET" ||
-        node.type === "SECTION") {
+        node.type === "SECTION" ||
+        node.type === "INSTANCE") {
         //If no request for exact child return false
         if (!exact)
             return true;
@@ -217,9 +219,20 @@ const barAttrs = {
     body: {
         name: NodesTitle.Progressbar,
         width: 120,
-        height: 4,
+        height: 8,
+        layoutMode: 'HORIZONTAL',
+        paddings: {
+            left: 2,
+            right: 2,
+            top: 2,
+            bottom: 2,
+        },
+        primaryAxisSizingMode: 'FIXED',
+        counterAxisSizingMode: 'FIXED',
+        primaryAxisAlignItems: 'MIN',
+        counterAxisAlignItems: 'CENTER',
         fills: {
-            type: "SOLID",
+            type: 'SOLID',
             color: {
                 r: 0.73333,
                 g: 0.73333,
@@ -229,12 +242,10 @@ const barAttrs = {
     },
     value: {
         name: NodesTitle.Value,
-        constraints: {
-            horizontal: "SCALE",
-            vertical: "STRETCH"
-        },
+        layoutSizingHorizontal: 'FILL',
+        layoutSizingVertical: 'FILL',
         fills: {
-            type: "SOLID",
+            type: 'SOLID',
             color: {
                 r: 0.08235,
                 g: 0.08235,
@@ -246,11 +257,12 @@ const barAttrs = {
 const pieAttrs = {
     body: {
         name: NodesTitle.Progressbar,
+        layoutMode: 'NONE',
         width: 48,
         height: 48,
         radius: 0.84,
         fills: {
-            type: "SOLID",
+            type: 'SOLID',
             color: {
                 r: 0.73333,
                 g: 0.73333,
@@ -260,12 +272,8 @@ const pieAttrs = {
     },
     value: {
         name: NodesTitle.Value,
-        constraints: {
-            horizontal: "SCALE",
-            vertical: "STRETCH"
-        },
         fills: {
-            type: "SOLID",
+            type: 'SOLID',
             color: {
                 r: 0.08235,
                 g: 0.08235,
@@ -276,7 +284,7 @@ const pieAttrs = {
     total: {
         name: NodesTitle.Total,
         fills: {
-            type: "SOLID",
+            type: 'SOLID',
             color: {
                 r: 0.73333,
                 g: 0.73333,
@@ -298,7 +306,7 @@ const defaultProps = {
 };
 let recentProps = defaultProps;
 function createProgressbar(props, selected) {
-    var _a, _b;
+    var _a, _b, _c, _d, _e, _f;
     // Drawing progressbar
     const parent = !selected
         ? figma.currentPage
@@ -311,23 +319,31 @@ function createProgressbar(props, selected) {
     body.name = attrs.body.name;
     body.resize(attrs.body.width, attrs.body.height);
     if (props.progressType === ProgressTypes.Bar) {
+        body.layoutMode = attrs.body.layoutMode;
+        body.paddingLeft = ((_a = attrs.body.paddings) === null || _a === void 0 ? void 0 : _a.left) || 0;
+        body.paddingRight = ((_b = attrs.body.paddings) === null || _b === void 0 ? void 0 : _b.right) || 0;
+        body.paddingTop = ((_c = attrs.body.paddings) === null || _c === void 0 ? void 0 : _c.top) || 0;
+        body.paddingBottom = ((_d = attrs.body.paddings) === null || _d === void 0 ? void 0 : _d.bottom) || 0;
+        body.primaryAxisSizingMode = attrs.body.primaryAxisSizingMode || 'FIXED';
+        body.counterAxisSizingMode = attrs.body.counterAxisSizingMode || 'FIXED';
+        body.primaryAxisAlignItems = props.remain ? 'MAX' : 'MIN';
+        body.counterAxisAlignItems = attrs.body.counterAxisAlignItems || 'CENTER';
         body.fills = [attrs.body.fills];
         // Create value
         const value = figma.createFrame();
-        value.name = attrs.value.name;
-        value.resize(attrs.body.width / 2, attrs.body.height);
-        value.constraints = attrs.value.constraints;
-        value.fills = [attrs.value.fills];
         body.appendChild(value);
-        value.x = props.remain ? body.width - value.width : 0;
+        value.name = attrs.value.name;
+        value.layoutSizingHorizontal = attrs.value.layoutSizingHorizontal || 'FILL';
+        value.layoutSizingVertical = attrs.value.layoutSizingVertical || 'FILL';
+        value.fills = [attrs.value.fills];
     }
     else if (props.progressType === ProgressTypes.Pie) {
         body.fills = [];
         // Creating total
         const total = figma.createEllipse();
-        total.name = ((_a = attrs.total) === null || _a === void 0 ? void 0 : _a.name) || "undefined";
+        total.name = ((_e = attrs.total) === null || _e === void 0 ? void 0 : _e.name) || "undefined";
         total.resize(attrs.body.width, attrs.body.height);
-        total.fills = [((_b = attrs.total) === null || _b === void 0 ? void 0 : _b.fills) || attrs.body.fills];
+        total.fills = [((_f = attrs.total) === null || _f === void 0 ? void 0 : _f.fills) || attrs.body.fills];
         total.arcData = { startingAngle: 0, endingAngle: 2 * Math.PI, innerRadius: attrs.body.radius || 42 };
         body.appendChild(total);
         // Creating value
@@ -376,6 +392,10 @@ function updateProgressabars(progressbars, props) {
     }
     function percentageToWidth(percentage, total) {
         const value = percentage <= 100 ? (percentage / 100) * total : total;
+        if (value <= 0)
+            return 0;
+        if (value > total)
+            return total;
         return value;
     }
     function restoreProps(progressbar) {
@@ -397,16 +417,33 @@ function updateProgressabars(progressbars, props) {
     }
     function updateValue(progressbar, percentage) {
         if (progressbar.type !== "FRAME" &&
-            progressbar.type !== "COMPONENT")
+            progressbar.type !== "COMPONENT" &&
+            progressbar.type !== "INSTANCE")
             throw new Error("Progressbat have to be FRAME or COMPONENT");
         const attrs = props.progressType === ProgressTypes.Bar ? barAttrs : pieAttrs;
         const valueFrame = progressbar.findChild(child => child.name === attrs.value.name);
-        const isVisible = percentage !== 0;
+        const isVisible = !(props.remain ? percentage >= 100 : percentage <= 0);
         if (valueFrame) {
             if (props.progressType === ProgressTypes.Bar && valueFrame.type === "FRAME") {
                 // Bar type
-                valueFrame.resize(isVisible ? percentageToWidth(percentage, progressbar.width) : 0.01, valueFrame.height);
-                valueFrame.x = props.remain ? progressbar.width - valueFrame.width : 0;
+                progressbar.primaryAxisAlignItems = props.remain ? 'MAX' : 'MIN';
+                const usersPadding = Math.min(progressbar.paddingLeft, progressbar.paddingRight);
+                const actualWidth = progressbar.width - usersPadding * 2;
+                if (progressbar.type === "FRAME") {
+                    // Operating by width
+                    let newWidth = percentageToWidth(percentage, progressbar.width - usersPadding * 2);
+                    if (props.remain)
+                        newWidth = actualWidth - newWidth;
+                    valueFrame.resize(isVisible ? newWidth : 0.01, valueFrame.height);
+                    valueFrame.layoutSizingHorizontal = "FIXED";
+                }
+                else if (progressbar.type === "INSTANCE") {
+                    // Operating by paddings
+                    const newPadding = percentageToWidth(props.remain ? percentage : 100 - percentage, actualWidth) + usersPadding;
+                    progressbar.paddingRight = props.remain ? usersPadding : newPadding;
+                    progressbar.paddingLeft = props.remain ? newPadding : usersPadding;
+                    valueFrame.layoutSizingHorizontal = "FILL";
+                }
                 valueFrame.visible = isVisible;
             }
             else if (props.progressType === ProgressTypes.Pie && valueFrame.type === "ELLIPSE") {
@@ -520,8 +557,8 @@ function edit() {
             const updatedNodes = updateProgressabars(progressbars.all, receivedData.props);
             recentProps = receivedData.props;
             // Select updated progressbars
-            figma.currentPage.selection = updatedNodes;
-            figma.viewport.scrollAndZoomIntoView(updatedNodes);
+            // figma.currentPage.selection = updatedNodes;
+            // figma.viewport.scrollAndZoomIntoView(updatedNodes);
             storageSync(Sync.Backup).then(() => {
                 figma.notify("Progressbars edited!");
                 figma.closePlugin();
