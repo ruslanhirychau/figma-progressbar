@@ -7,9 +7,11 @@ console.log("The plugin is up and running");
   [✓] Update the client storage with data then changed
   [✓] Get data from the client storage to variable
   [✓] Support copy progressbars
-  [ ] Support current Progressbar [50 : 100]
   [✓] Support changing progressbar type
+  [✓] Support current Progressbar [50 : 100]
+  [ ] Support autolayout for Bars
   [ ] Get values form nodes
+  [ ] Random values
 */
 /* DATA STRUCTURE */
 var ProgressTypes;
@@ -149,6 +151,37 @@ function hasChildren(node, exact) {
 }
 function isProgressbar(sceneNode) {
     // Check if frame name contains NodesTitle.Progressbar and has a child named NodesTitle.Value
+    // V2 MIGRATION
+    if (sceneNode.type === "FRAME") {
+        const title = sceneNode.name;
+        const regex = /(\bProgressbar\b)\s\[(.*?)\]/;
+        const exists = title.match(regex);
+        // If it has name like Progressbar [0:100]
+        if (exists) {
+            const values = exists[2].split(":");
+            const value = parseFloat(values[0]);
+            const total = parseFloat(values[1]);
+            const child = sceneNode.children[0];
+            sceneNode.name = NodesTitle.Progressbar;
+            // Change Rectangular to Frame named Value
+            const valueFrame = figma.createFrame();
+            valueFrame.name = NodesTitle.Value;
+            valueFrame.resizeWithoutConstraints(child.width, child.height);
+            valueFrame.fills = child.fills;
+            valueFrame.cornerRadius = child.cornerRadius;
+            valueFrame.strokes = child.strokes;
+            valueFrame.effects = child.effects;
+            sceneNode.appendChild(valueFrame);
+            valueFrame.x = child.x;
+            valueFrame.y = child.y;
+            child.remove();
+            const newProps = defaultProps;
+            newProps.progressType = ProgressTypes.Bar;
+            newProps.value = value;
+            newProps.total = total;
+            storageSet({ [sceneNode.id]: newProps });
+        }
+    }
     return textContains(sceneNode.name, NodesTitle.Progressbar) && hasChildren(sceneNode, NodesTitle.Value);
 }
 function extractProgressbars(selection) {
@@ -400,7 +433,6 @@ function updateProgressabars(progressbars, props) {
             const isNewTypeRequired = currentProps && props.progressType !== currentProps.progressType;
             const progressToUpdate = isNewTypeRequired ? changeType(progressbar) : progressbar;
             updateValue(progressToUpdate, percentage);
-            console.log(progressToUpdate.id);
             storageSet({ [progressToUpdate.id]: props });
             updatedNodes.push(progressToUpdate);
         }
