@@ -17,8 +17,6 @@
   "menu": [
     {"name": "Add", "command": "add"},
     {"name": "Edit", "command": "edit"},
-    {"name": "Update from text layers", "command": "update"},
-    {"name": "Reset plugin", "command": "reset"},
-    {"name": "Test", "command": "test"}
+    {"name": "Reset plugin", "command": "reset"}
   ]
 }

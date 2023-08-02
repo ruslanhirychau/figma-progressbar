@@ -1,19 +1,6 @@
 "use strict";
-console.clear();
-console.log("The plugin is up and running");
-/*
-  [✓] Define data type
-  [✓] Stogage data in variables
-  [✓] Update the client storage with data then changed
-  [✓] Get data from the client storage to variable
-  [✓] Support copy progressbars
-  [✓] Support changing progressbar type
-  [✓] Support current Progressbar [50 : 100]
-  [✓] Support autolayout for Bars
-  [✓] Support instances
-  [✓] Random values
-  [ ] Get values form nodes
-*/
+// console.clear();
+// console.log("The plugin is up and running")
 /* DATA STRUCTURE */
 var ProgressTypes;
 (function (ProgressTypes) {
@@ -464,7 +451,7 @@ function updateProgressabars(progressbars, props) {
     }
     // Updating each progressbar
     for (const [index, progressbar] of progressbars.entries()) {
-        console.log("[" + props.sourceType + "] Updating " + (index + 1) + " of " + progressbars.length + " : " + progressbar.id);
+        // console.log("[" + props.sourceType + "] Updating " + (index + 1) + " of " + progressbars.length + " : " + progressbar.id);
         const currentId = progressbar.id;
         let currentProps = storageGet(currentId, true);
         if (!currentProps) {
@@ -620,15 +607,15 @@ var Commands;
     Commands["Reset"] = "reset";
     Commands["Add"] = "add";
     Commands["Edit"] = "edit";
-    Commands["Update"] = "update";
-    Commands["Test"] = "test";
+    // Update = "update",
+    // Test = "test"
 })(Commands || (Commands = {}));
 const commandFunctions = {
+    [Commands.Reset]: reset,
     [Commands.Add]: add,
     [Commands.Edit]: edit,
-    [Commands.Update]: update,
-    [Commands.Reset]: reset,
-    [Commands.Test]: test
+    // [Commands.Update]: update,
+    // [Commands.Test]: test
 };
 const commandFunction = commandFunctions[figma.command];
 if (commandFunction)
