@@ -11,8 +11,8 @@ console.log("The plugin is up and running");
   [✓] Support current Progressbar [50 : 100]
   [✓] Support autolayout for Bars
   [✓] Support instances
+  [✓] Random values
   [ ] Get values form nodes
-  [ ] Random values
 */
 /* DATA STRUCTURE */
 var ProgressTypes;
@@ -23,9 +23,9 @@ var ProgressTypes;
 var SourceTypes;
 (function (SourceTypes) {
     SourceTypes["Manual"] = "manual";
+    SourceTypes["Random"] = "random";
     SourceTypes["Node"] = "node";
     SourceTypes["Nodes"] = "nodes";
-    SourceTypes["Random"] = "random";
 })(SourceTypes || (SourceTypes = {}));
 let storage = []; // [{…}, {…}, {…}]
 function storageGet(key, props) {
@@ -207,8 +207,9 @@ function extractProgressbars(selection) {
                     node.type === "FRAME" ||
                     node.type === "COMPONENT" ||
                     node.type === "COMPONENT_SET" ||
-                    node.type === "SECTION")
+                    node.type === "SECTION") {
                     inspectLevel(node.children);
+                }
             }
         });
     }
@@ -222,10 +223,10 @@ const barAttrs = {
         height: 8,
         layoutMode: 'HORIZONTAL',
         paddings: {
-            left: 2,
-            right: 2,
-            top: 2,
-            bottom: 2,
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
         },
         primaryAxisSizingMode: 'FIXED',
         counterAxisSizingMode: 'FIXED',
@@ -296,7 +297,7 @@ const pieAttrs = {
 const defaultProps = {
     progressType: ProgressTypes.Bar,
     sourceType: SourceTypes.Manual,
-    value: 22,
+    value: 50,
     total: 100,
     source1: '',
     source2: '',
@@ -305,6 +306,14 @@ const defaultProps = {
     remain: false
 };
 let recentProps = defaultProps;
+function restoreProgressbar(progressbar) {
+    // Set default props with right type
+    const newProps = defaultProps;
+    newProps.progressType = hasChildren(progressbar, NodesTitle.Total)
+        ? ProgressTypes.Pie
+        : ProgressTypes.Bar;
+    storageSet({ [progressbar.id]: newProps });
+}
 function createProgressbar(props, selected) {
     var _a, _b, _c, _d, _e, _f;
     // Drawing progressbar
@@ -381,6 +390,7 @@ function createProgressbar(props, selected) {
 }
 function updateProgressabars(progressbars, props) {
     // Update values in progressbars
+    const updatedNodes = [];
     function calculatePercenage(value, total) {
         if (total === 0)
             throw new Error("Total cannot be zero.");
@@ -398,14 +408,10 @@ function updateProgressabars(progressbars, props) {
             return total;
         return value;
     }
-    function restoreProps(progressbar) {
-        // Restore 
-        const newProps = defaultProps;
-        newProps.progressType = hasChildren(progressbar, NodesTitle.Total)
-            ? ProgressTypes.Pie
-            : ProgressTypes.Bar;
-        console.log(newProps);
-        storageSet({ [progressbar.id]: newProps });
+    function getRandomNumber(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1) + min);
     }
     function changeType(progressbar) {
         const parent = progressbar.parent || figma.currentPage;
@@ -419,7 +425,7 @@ function updateProgressabars(progressbars, props) {
         if (progressbar.type !== "FRAME" &&
             progressbar.type !== "COMPONENT" &&
             progressbar.type !== "INSTANCE")
-            throw new Error("Progressbat have to be FRAME or COMPONENT");
+            throw new Error("Progressbat have to be FRAME, COMPONENT or INSTANCE");
         const attrs = props.progressType === ProgressTypes.Bar ? barAttrs : pieAttrs;
         const valueFrame = progressbar.findChild(child => child.name === attrs.value.name);
         const isVisible = !(props.remain ? percentage >= 100 : percentage <= 0);
@@ -456,25 +462,35 @@ function updateProgressabars(progressbars, props) {
             }
         }
     }
-    const percentage = calculatePercenage(props.value, props.total);
-    const updatedNodes = [];
-    function updateProgressBars(progressbars, percentage) {
-        for (const [index, progressbar] of progressbars.entries()) {
-            console.log("Updating " + (index + 1) + " of " + progressbars.length + " : " + progressbar.id);
-            const currentId = progressbar.id;
-            let currentProps = storageGet(currentId, true);
-            if (!currentProps) {
-                restoreProps(progressbar);
-                currentProps = storageGet(currentId, true);
-            }
-            const isNewTypeRequired = currentProps && props.progressType !== currentProps.progressType;
-            const progressToUpdate = isNewTypeRequired ? changeType(progressbar) : progressbar;
-            updateValue(progressToUpdate, percentage);
-            storageSet({ [progressToUpdate.id]: props });
-            updatedNodes.push(progressToUpdate);
+    // Updating each progressbar
+    for (const [index, progressbar] of progressbars.entries()) {
+        console.log("[" + props.sourceType + "] Updating " + (index + 1) + " of " + progressbars.length + " : " + progressbar.id);
+        const currentId = progressbar.id;
+        let currentProps = storageGet(currentId, true);
+        if (!currentProps) {
+            restoreProgressbar(progressbar);
+            currentProps = storageGet(currentId, true);
         }
+        const isNewTypeRequired = currentProps && props.progressType !== currentProps.progressType;
+        const progressToUpdate = isNewTypeRequired ? changeType(progressbar) : progressbar;
+        var value = 0;
+        var total = 0;
+        switch (props.sourceType) {
+            case SourceTypes.Manual:
+                value = props.value;
+                total = props.total;
+                break;
+            case SourceTypes.Random:
+                value = getRandomNumber(props.min, props.max);
+                total = 100;
+                break;
+            default:
+                break;
+        }
+        updateValue(progressToUpdate, calculatePercenage(value, total));
+        storageSet({ [progressToUpdate.id]: props });
+        updatedNodes.push(progressToUpdate);
     }
-    updateProgressBars(progressbars, percentage);
     return updatedNodes;
 }
 /* RUNS */
@@ -529,7 +545,6 @@ function edit() {
         figma.closePlugin();
     }
     storageSync(Sync.Restore).then(() => {
-        var _a;
         const progressbars = extractProgressbars(selection);
         if (!progressbars.all.length) {
             figma.notify("No progressbars was found in selection");
@@ -537,9 +552,16 @@ function edit() {
         }
         let propsToSend = defaultProps;
         if (progressbars.stored.length) {
-            const firstRecord = progressbars.stored[0].id;
-            const firstProps = (_a = storage.find(record => firstRecord in record)) === null || _a === void 0 ? void 0 : _a[firstRecord];
-            propsToSend = firstProps || defaultProps;
+            // Getting params from first in storage
+            const id = progressbars.stored[0].id;
+            const props = storageGet(id, true);
+            propsToSend = props || defaultProps;
+        }
+        else {
+            // Restore params for the first selected
+            const element = progressbars.all[0];
+            restoreProgressbar(element);
+            propsToSend = storageGet(element.id, true) || defaultProps;
         }
         const message = {
             command: Commands.Edit,
@@ -549,15 +571,10 @@ function edit() {
         showUI(message);
         figma.ui.onmessage = async (receivedData) => {
             figma.ui.hide();
-            /*
-              [ ] Support node source
-              [ ] Support nodes source
-              [ ] Support random source
-            */
-            const updatedNodes = updateProgressabars(progressbars.all, receivedData.props);
             recentProps = receivedData.props;
+            const updatedNodes = updateProgressabars(progressbars.all, receivedData.props);
             // Select updated progressbars
-            // figma.currentPage.selection = updatedNodes;
+            figma.currentPage.selection = updatedNodes;
             // figma.viewport.scrollAndZoomIntoView(updatedNodes);
             storageSync(Sync.Backup).then(() => {
                 figma.notify("Progressbars edited!");

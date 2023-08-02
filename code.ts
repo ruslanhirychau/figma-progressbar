@@ -11,8 +11,8 @@ console.log("The plugin is up and running")
   [✓] Support current Progressbar [50 : 100]
   [✓] Support autolayout for Bars
   [✓] Support instances
+  [✓] Random values
   [ ] Get values form nodes
-  [ ] Random values
 */
 
 /* DATA STRUCTURE */
@@ -24,9 +24,9 @@ enum ProgressTypes {
 
 enum SourceTypes {
   Manual = "manual",
+  Random = "random",
   Node = "node",
-  Nodes = "nodes",
-  Random = "random"
+  Nodes = "nodes"
 }
 
 interface Props {
@@ -260,8 +260,9 @@ function extractProgressbars(selection: readonly SceneNode[]): Progressbars {
           node.type === "COMPONENT" ||
           node.type === "COMPONENT_SET" ||
           node.type === "SECTION"
-        )
+        ) {
           inspectLevel(node.children);
+        }
       }
     });
   }
@@ -310,10 +311,10 @@ const barAttrs: Attrs = {
     height: 8,
     layoutMode: 'HORIZONTAL',
     paddings: {
-      left: 2,
-      right: 2,
-      top: 2,
-      bottom: 2,
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
     },
     primaryAxisSizingMode: 'FIXED',
     counterAxisSizingMode: 'FIXED',
@@ -386,7 +387,7 @@ const pieAttrs: Attrs = {
 const defaultProps: Props = {
   progressType: ProgressTypes.Bar,
   sourceType: SourceTypes.Manual,
-  value: 22,
+  value: 50,
   total: 100,
   source1: '',
   source2: '',
@@ -396,6 +397,17 @@ const defaultProps: Props = {
 }
 
 let recentProps: Props = defaultProps;
+
+
+function restoreProgressbar(progressbar: SceneNode) {
+  // Set default props with right type
+  const newProps: Props = defaultProps;
+  newProps.progressType = hasChildren(progressbar, NodesTitle.Total)
+    ? ProgressTypes.Pie
+    : ProgressTypes.Bar;
+
+  storageSet({ [progressbar.id]: newProps } as StoreRecord);
+}
 
 function createProgressbar(props: Props, selected?: SceneNode): SceneNode {
   // Drawing progressbar
@@ -486,6 +498,7 @@ function createProgressbar(props: Props, selected?: SceneNode): SceneNode {
 
 function updateProgressabars(progressbars: SceneNode[], props: Props): SceneNode[] {
   // Update values in progressbars
+  const updatedNodes: SceneNode[] = [];
 
   function calculatePercenage(value: number, total: number): number {
     if (total === 0) throw new Error("Total cannot be zero.");
@@ -504,16 +517,10 @@ function updateProgressabars(progressbars: SceneNode[], props: Props): SceneNode
     return value;
   }
 
-  function restoreProps(progressbar: SceneNode) {
-    // Restore 
-    const newProps: Props = defaultProps;
-    newProps.progressType = hasChildren(progressbar, NodesTitle.Total)
-      ? ProgressTypes.Pie
-      : ProgressTypes.Bar;
-
-    console.log(newProps)
-
-    storageSet({ [progressbar.id]: newProps } as StoreRecord);
+  function getRandomNumber(min: number, max: number): number {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1) + min);
   }
 
   function changeType(progressbar: SceneNode): SceneNode {
@@ -532,7 +539,7 @@ function updateProgressabars(progressbars: SceneNode[], props: Props): SceneNode
       progressbar.type !== "FRAME" &&
       progressbar.type !== "COMPONENT" &&
       progressbar.type !== "INSTANCE"
-    ) throw new Error("Progressbat have to be FRAME or COMPONENT");
+    ) throw new Error("Progressbat have to be FRAME, COMPONENT or INSTANCE");
 
     const attrs = props.progressType === ProgressTypes.Bar ? barAttrs : pieAttrs;
     const valueFrame = progressbar.findChild(child => child.name === attrs.value.name);
@@ -576,31 +583,44 @@ function updateProgressabars(progressbars: SceneNode[], props: Props): SceneNode
     }
   }
 
-  const percentage = calculatePercenage(props.value, props.total);
-  const updatedNodes: SceneNode[] = [];
+  // Updating each progressbar
+  for (const [index, progressbar] of progressbars.entries()) {
+    console.log("[" + props.sourceType + "] Updating " + (index + 1) + " of " + progressbars.length + " : " + progressbar.id);
 
-  function updateProgressBars(progressbars: SceneNode[], percentage: number): void {
-    for (const [index, progressbar] of progressbars.entries()) {
-      console.log("Updating " + (index + 1) + " of " + progressbars.length + " : " + progressbar.id);
+    const currentId = progressbar.id;
+    let currentProps = storageGet(currentId, true);
 
-      const currentId = progressbar.id;
-      let currentProps = storageGet(currentId, true);
-
-      if (!currentProps) {
-        restoreProps(progressbar);
-        currentProps = storageGet(currentId, true);
-      }
-
-      const isNewTypeRequired = currentProps && props.progressType !== currentProps.progressType;
-      const progressToUpdate = isNewTypeRequired ? changeType(progressbar) : progressbar;
-
-      updateValue(progressToUpdate, percentage);
-      storageSet({ [progressToUpdate.id]: props });
-      updatedNodes.push(progressToUpdate);
+    if (!currentProps) {
+      restoreProgressbar(progressbar);
+      currentProps = storageGet(currentId, true);
     }
+
+    const isNewTypeRequired = currentProps && props.progressType !== currentProps.progressType;
+    const progressToUpdate = isNewTypeRequired ? changeType(progressbar) : progressbar;
+
+    var value = 0;
+    var total = 0;
+
+    switch (props.sourceType) {
+      case SourceTypes.Manual:
+        value = props.value;
+        total = props.total
+        break;
+
+      case SourceTypes.Random:
+        value = getRandomNumber(props.min, props.max)
+        total = 100
+        break;
+
+      default:
+        break;
+    }
+
+    updateValue(progressToUpdate, calculatePercenage(value, total));
+    storageSet({ [progressToUpdate.id]: props });
+    updatedNodes.push(progressToUpdate);
   }
 
-  updateProgressBars(progressbars, percentage);
   return updatedNodes;
 }
 
@@ -680,9 +700,15 @@ function edit(): void {
     let propsToSend = defaultProps;
 
     if (progressbars.stored.length) {
-      const firstRecord = progressbars.stored[0].id;
-      const firstProps = storage.find(record => firstRecord in record)?.[firstRecord];
-      propsToSend = firstProps || defaultProps;
+      // Getting params from first in storage
+      const id = progressbars.stored[0].id;
+      const props = storageGet(id, true) as Props;
+      propsToSend = props || defaultProps;
+    } else {
+      // Restore params for the first selected
+      const element = progressbars.all[0];
+      restoreProgressbar(element);
+      propsToSend = storageGet(element.id, true) as Props || defaultProps;
     }
 
     const message: Message = {
@@ -695,18 +721,12 @@ function edit(): void {
 
     figma.ui.onmessage = async receivedData => {
       figma.ui.hide();
-
-      /* 
-        [ ] Support node source
-        [ ] Support nodes source 
-        [ ] Support random source
-      */
-
-      const updatedNodes = updateProgressabars(progressbars.all, receivedData.props)
       recentProps = receivedData.props;
 
+      const updatedNodes = updateProgressabars(progressbars.all, receivedData.props);
+
       // Select updated progressbars
-      // figma.currentPage.selection = updatedNodes;
+      figma.currentPage.selection = updatedNodes;
       // figma.viewport.scrollAndZoomIntoView(updatedNodes);
 
       storageSync(Sync.Backup).then(() => {
@@ -715,8 +735,6 @@ function edit(): void {
       });
     }
   });
-
-
 }
 
 function update(): void {

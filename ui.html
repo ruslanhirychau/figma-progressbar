@@ -383,9 +383,9 @@
       <div class="control icon manual">
         <select id="source">
           <option id="manual" value="manual">Manual entering</option>
+          <option id="random" value="random">Random</option>
           <option id="node" value="node">Get value from text layer</option>
           <option id="nodes" value="nodes">Get value and total from text layers</option>
-          <option id="random" value="random">Random</option>
         </select>
       </div>
       <section id="remaining" class="row">
@@ -554,8 +554,6 @@
     const input1 = document.getElementById("input1");
     const input2 = document.getElementById("input2");
 
-    input1.focus();
-
     controls.forEach((control) => control.className = "control");
 
     switch (source) {
@@ -576,12 +574,8 @@
         input2.placeholder = "out of"
         input1.type = "text";
         input2.type = "number";
-
-        props.sourceType1 !== null
-          ? input1.value = props.sourceType1
-          : input1.value = ""
-
-        input2.value = props.total
+        input1.value = props.sourceType1 || "";
+        input2.value = props.total;
 
         break;
       case "nodes":
@@ -592,8 +586,8 @@
         input1.placeholder = input2.placeholder = "TextName"
         input1.type = input2.type = "text";
 
-        input1.value = props.sourceType1
-        input2.value = props.sourceType2
+        input1.value = props.sourceType1 || ""
+        input2.value = props.sourceType2 || ""
 
         break;
       case "random":
@@ -615,6 +609,9 @@
 
     props.sourceType = source;
     updatePreview()
+
+    input1.focus();
+    input1.select();
   }
 
   sourceElement.addEventListener('change', event => sourceChange(event.target.value, props));
