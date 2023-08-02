@@ -1,10 +1,22 @@
 {
-  "name": "Progressbar Ratio",
+  "name": "figma-progressbar",
   "id": "811556645239532627",
   "api": "1.0.0",
   "main": "code.js",
-  "ui": "ui.html",
+  "capabilities": [],
+  "enableProposedApi": false,
   "editorType": [
     "figma"
+  ],
+  "ui": "ui.html",
+  "networkAccess": {
+    "allowedDomains": [
+      "none"
+    ]
+  },
+  "menu": [
+    {"name": "Add", "command": "add"},
+    {"name": "Edit", "command": "edit"},
+    {"name": "Reset plugin", "command": "reset"}
   ]
 }
