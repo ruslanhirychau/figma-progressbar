@@ -443,7 +443,7 @@ function updateProgressabars(progressbars, props) {
                 // Pie type
                 const startingAngle = props.remain ? percentageToRadians(-(100 - percentage)) : -Math.PI / 2;
                 const endingAngle = props.remain ? -Math.PI / 2 : percentageToRadians(percentage);
-                const innerRadius = attrs.body.radius || 42;
+                const innerRadius = valueFrame.arcData.innerRadius || attrs.body.radius || 0.84;
                 valueFrame.arcData = { startingAngle, endingAngle, innerRadius };
                 valueFrame.visible = isVisible;
             }
